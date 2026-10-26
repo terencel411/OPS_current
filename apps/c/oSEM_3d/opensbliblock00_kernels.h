@@ -42,29 +42,71 @@ void KerRhoMin(const ACC<double>& rho_B0, double* m) {
   if (rho_B0(0,0,0) < *m) *m = rho_B0(0,0,0);
 }
 
-void instantiate_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_x_rng, const ACC<int>& eddy_bulk_rng){
-  eddy_x(0,0,0) = eddy_x_min + (eddy_x_rng(0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_x_max - eddy_x_min);
-  eddy_y(0,0,0) = eddy_y_min + (eddy_bulk_rng(0,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_y_max - eddy_y_min);
-  eddy_z(0,0,0) = eddy_z_min + (eddy_bulk_rng(1,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_z_max - eddy_z_min);
-  eddy_eps_x(0,0,0) = (eddy_bulk_rng(2,0,0,0) < 0) ? -1 : 1;
-  eddy_eps_y(0,0,0) = (eddy_bulk_rng(3,0,0,0) < 0) ? -1 : 1;
-  eddy_eps_z(0,0,0) = (eddy_bulk_rng(4,0,0,0) < 0) ? -1 : 1;
+void instantiate_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_x_rng, const ACC<int>& eddy_bulk_rng, const int *idx){
+  unsigned int s = (unsigned int)idx[0] * 2654435761u + (unsigned int)seed_gbl;
+  unsigned int r[6];
+  for (int q = 0; q < 6; q++) {
+    s += 0x9e3779b9u;
+    unsigned int h = s;
+    h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
+    r[q] = h;
+  }
+    
+  eddy_x(0,0,0) = eddy_x_min + (double)r[0] / 4294967295.0 * (eddy_x_max - eddy_x_min);
+  eddy_y(0,0,0) = eddy_y_min + (double)r[1] / 4294967295.0 * (eddy_y_max - eddy_y_min);
+  eddy_z(0,0,0) = eddy_z_min + (double)r[2] / 4294967295.0 * (eddy_z_max - eddy_z_min);
+  eddy_eps_x(0,0,0) = (r[3] & 0x80000000u) ? -1 : 1;
+  eddy_eps_y(0,0,0) = (r[4] & 0x80000000u) ? -1 : 1;
+  eddy_eps_z(0,0,0) = (r[5] & 0x80000000u) ? -1 : 1;
   eddy_r(0,0,0) = radius;
   eddy_increment(0,0,0) = 1.0 * dt;
 }
 
-void convect_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, const ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_bulk_rng){
+void convect_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, const ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_bulk_rng, const int *idx){
+  unsigned int s = (unsigned int)idx[0] * 2654435761u + (unsigned int)seed_gbl;
+  unsigned int r[6];
+  for (int q = 0; q < 6; q++) {
+    s += 0x9e3779b9u;
+    unsigned int h = s;
+    h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
+    r[q] = h;
+  }
+
   eddy_x(0,0,0) = eddy_x(0,0,0) + eddy_increment(0,0,0);
   
   if(eddy_x(0,0,0) > eddy_x_max){
     eddy_x(0,0,0) = eddy_x_min;
-    eddy_y(0,0,0) = eddy_y_min + (eddy_bulk_rng(0,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_y_max - eddy_y_min);
-    eddy_z(0,0,0) = eddy_z_min + (eddy_bulk_rng(1,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_z_max - eddy_z_min);
-    eddy_eps_x(0,0,0) = (eddy_bulk_rng(2,0,0,0) < 0) ? -1 : 1;
-    eddy_eps_y(0,0,0) = (eddy_bulk_rng(3,0,0,0) < 0) ? -1 : 1;
-    eddy_eps_z(0,0,0) = (eddy_bulk_rng(4,0,0,0) < 0) ? -1 : 1;
+    eddy_y(0,0,0) = eddy_y_min + (double)r[1] / 4294967295.0 * (eddy_y_max - eddy_y_min);
+    eddy_z(0,0,0) = eddy_z_min + (double)r[2] / 4294967295.0 * (eddy_z_max - eddy_z_min);
+    eddy_eps_x(0,0,0) = (r[3] & 0x80000000u) ? -1 : 1;
+    eddy_eps_y(0,0,0) = (r[4] & 0x80000000u) ? -1 : 1;
+    eddy_eps_z(0,0,0) = (r[5] & 0x80000000u) ? -1 : 1;
   }
 }
+
+// void instantiate_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_x_rng, const ACC<int>& eddy_bulk_rng){
+//   eddy_x(0,0,0) = eddy_x_min + (eddy_x_rng(0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_x_max - eddy_x_min);
+//   eddy_y(0,0,0) = eddy_y_min + (eddy_bulk_rng(0,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_y_max - eddy_y_min);
+//   eddy_z(0,0,0) = eddy_z_min + (eddy_bulk_rng(1,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_z_max - eddy_z_min);
+//   eddy_eps_x(0,0,0) = (eddy_bulk_rng(2,0,0,0) < 0) ? -1 : 1;
+//   eddy_eps_y(0,0,0) = (eddy_bulk_rng(3,0,0,0) < 0) ? -1 : 1;
+//   eddy_eps_z(0,0,0) = (eddy_bulk_rng(4,0,0,0) < 0) ? -1 : 1;
+//   eddy_r(0,0,0) = radius;
+//   eddy_increment(0,0,0) = 1.0 * dt;
+// }
+
+// void convect_eddies(ACC<double>& eddy_x, ACC<double>& eddy_y, ACC<double>& eddy_z, ACC<double>& eddy_r, const ACC<double>& eddy_increment, ACC<int>& eddy_eps_x, ACC<int>& eddy_eps_y, ACC<int>& eddy_eps_z, const ACC<int>& eddy_bulk_rng){
+//   eddy_x(0,0,0) = eddy_x(0,0,0) + eddy_increment(0,0,0);
+  
+//   if(eddy_x(0,0,0) > eddy_x_max){
+//     eddy_x(0,0,0) = eddy_x_min;
+//     eddy_y(0,0,0) = eddy_y_min + (eddy_bulk_rng(0,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_y_max - eddy_y_min);
+//     eddy_z(0,0,0) = eddy_z_min + (eddy_bulk_rng(1,0,0,0) + 2147483648.0) / (4294967295.0) * (eddy_z_max - eddy_z_min);
+//     eddy_eps_x(0,0,0) = (eddy_bulk_rng(2,0,0,0) < 0) ? -1 : 1;
+//     eddy_eps_y(0,0,0) = (eddy_bulk_rng(3,0,0,0) < 0) ? -1 : 1;
+//     eddy_eps_z(0,0,0) = (eddy_bulk_rng(4,0,0,0) < 0) ? -1 : 1;
+//   }
+// }
 
 void uinterp_kernel(ACC<double>& d_uinterp, const ACC<double>& x1_B0){
   double w1;
