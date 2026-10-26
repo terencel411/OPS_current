@@ -24,14 +24,16 @@ ops_init(argc,argv,1);
 restart = 0;
 // User defined constant values
 Lx1 = 100.0;
-block0np0 = 650;
-block0np1 = 200;
-block0np2 = 100;
-niter = 200;
+block0np0 = 750;
+block0np1 = 250;
+block0np2 = 150;
+niter = 55000;
+niter = 100;
 double rkB[] = {(1.0/3.0), (15.0/16.0), (8.0/15.0)};
 double rkA[] = {0, (-5.0/9.0), (-153.0/128.0)};
 dt = 0.025;
-write_output_file = 20;
+write_output_file = 5000;
+write_output_file = 10;
 seed_gbl = 182383739;
 write_convection_data_to_text = 1; // 0 disables writing debug eddy data to text
 
@@ -65,11 +67,9 @@ start_averaging = 0.5 * niter;
 invniter = 1.0/(niter - start_averaging);
 
 ny = (int)trunc(block0np1 * 0.6);
-ny = block0np1;
 uinterp = (double*)malloc(ny * sizeof(double));
 
 y_cutoff = (block0np1 < 150) ? block0np1 : 150;
-y_cutoff = block0np1;
 
 //------------------- eddy variables---------------------------
 
@@ -143,7 +143,6 @@ ops_decl_const("ny", 1, "int", &ny);
 ops_decl_const("uinterp", ny, "double", &uinterp[0]);
 ops_decl_const("yprofdata", 121, "double", &yprofdata[0]);
 ops_decl_const("uprofdata", 121, "double", &uprofdata[0]);
-ops_decl_const("seed_gbl", 1, "int", &seed_gbl);
 
 
 // ---------------------- eddy global constants-------------------------------
@@ -272,11 +271,9 @@ for(int i{0}; i < ny; i++){
 // -------------------------eddy initialisation-----------------------\
 
 seed_gbl = (a*seed_gbl + c) % m;
-ops_update_const("seed_gbl", 1, "int", &seed_gbl);
 ops_randomgen_init(seed_gbl, 0);
 ops_fill_random_uniform(eddy_x_rng);
 seed_gbl = (a*seed_gbl + c) % m;
-ops_update_const("seed_gbl", 1, "int", &seed_gbl);
 //ops_randomgen_init(seed_gbl, 0);
 ops_fill_random_uniform(eddy_bulk_rng);
 int eddy_iter_range[] = {0, eddies, 0, 1, 0, 1};
@@ -290,8 +287,7 @@ ops_arg_dat(eddy_eps_x, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_eps_y, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_eps_z, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_x_rng, 1, stencil_0_00_00_00_3, "int", OPS_READ),
-ops_arg_dat(eddy_bulk_rng, 5, stencil_0_00_00_00_3, "int", OPS_READ),
-ops_arg_idx());
+ops_arg_dat(eddy_bulk_rng, 5, stencil_0_00_00_00_3, "int", OPS_READ));
 
 ops_dat_fetch_data(eddy_x, 0, (char*)eddy_x_gbl);
 ops_dat_fetch_data(eddy_y, 0, (char*)eddy_y_gbl);
@@ -371,7 +367,6 @@ if(fmod(iter+1, 1) == 0){
 
 
 seed_gbl = (a*seed_gbl + c) % m;
-ops_update_const("seed_gbl", 1, "int", &seed_gbl);
 //ops_randomgen_init(seed_gbl, 0);
 ops_fill_random_uniform(eddy_bulk_rng);
 ops_par_loop(convect_eddies, "convect_eddies", opensbliblock00, 3, eddy_iter_range,
@@ -383,8 +378,7 @@ ops_arg_dat(eddy_increment, 1, stencil_0_00_00_00_3, "double", OPS_READ),
 ops_arg_dat(eddy_eps_x, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_eps_y, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_eps_z, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
-ops_arg_dat(eddy_bulk_rng, 5, stencil_0_00_00_00_3, "int", OPS_READ),
-ops_arg_idx());
+ops_arg_dat(eddy_bulk_rng, 5, stencil_0_00_00_00_3, "int", OPS_READ));
 
 ops_dat_fetch_data(eddy_x, 0, (char*) eddy_x_gbl);
 ops_dat_fetch_data(eddy_y, 0, (char*) eddy_y_gbl);
