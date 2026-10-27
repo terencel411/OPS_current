@@ -42,6 +42,7 @@
 #include "ops_util.h"
 #include <string>
 #include <assert.h>
+#include "ops_trace.h"
 
 #ifndef __XDIMS__ // perhaps put this into a separate header file
 #define __XDIMS__
@@ -735,14 +736,18 @@ void ops_dat_release_raw_data_memspace(ops_dat dat, int part, ops_access acc, op
     dat->locked_hd = 0;
 }
 void ops_dat_fetch_data(ops_dat dat, int part, char *data) {
+  OPS_TRACE("dat=%s", dat->name);
   ops_dat_fetch_data_memspace(dat, part, data, OPS_HOST);
 }
 
 void ops_dat_global_fetch_data(ops_dat dat, int part, char *data) {
+  OPS_TRACE("dat=%s  [single-node: plain forward, no MPI]", dat->name);
   ops_dat_fetch_data(dat, part, data);
 }
 
 void ops_dat_fetch_data_host(ops_dat dat, int part, char *data) {
+  OPS_TRACE("dat=%s dirty_hd=%d -> %s", dat->name, dat->dirty_hd,
+            dat->dirty_hd == 2 ? "D2H" : "no copy");
   ops_execute(dat->block->instance);
   ops_check_lowdim_update(dat);
   ops_get_data(dat);

@@ -37,6 +37,7 @@
   */
 
 #include <ops_lib_core.h>
+#include "ops_trace.h"
 
 
 ops_dat ops_decl_dat_char(ops_block block, int size, int *dat_size, int *base,
@@ -446,6 +447,7 @@ void ops_halo_transfer(ops_halo_group group) {
 }
 
 void ops_dat_fetch_data_memspace(ops_dat dat, int part, char *data, ops_memspace memspace) {
+  OPS_TRACE("dat=%s  [host backend, memspace ignored]", dat->name);
   (void)memspace;
   ops_dat_fetch_data_host(dat, part, data);
 }

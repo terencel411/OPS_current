@@ -31,3 +31,11 @@ ops/fortran/mod
 tea*.in
 .clang-format
 
+# app specific files
+**/.generated
+**/cuda/
+**/hip/
+**/opencl/
+**/openmp_offload/
+**/sycl/
+**_ops.cpp

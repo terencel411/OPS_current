@@ -38,6 +38,7 @@
   */
 
 #include <ops_cuda_rt_support.h>
+#include "ops_trace.h"
 
 int halo_buffer_size = 0;
 char *halo_buffer_d = NULL;
@@ -728,6 +729,7 @@ void ops_dat_set_data_slab_memspace(ops_dat dat, int part, char *data, int *rang
 
 
 void ops_dat_fetch_data_memspace(ops_dat dat, int part, char *data, ops_memspace memspace) {
+  OPS_TRACE("dat=%s  [about to throw OPS_NOT_IMPLEMENTED]", dat->name);
   throw OPSException(OPS_NOT_IMPLEMENTED, "Error: Not implemented");
   if (memspace == OPS_HOST) ops_dat_fetch_data_host(dat, part, data);
   else {

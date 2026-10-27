@@ -40,6 +40,7 @@
 #include <ops_cuda_rt_support.h>
 
 #include <curand.h>
+#include "ops_trace.h"
 curandGenerator_t ops_rand_gen;
 int curand_initialised = 0;
 
@@ -100,6 +101,7 @@ void ops_device_memcpy_h2d(OPS_instance *instance, void** to, void **from, size_
 }
 
 void ops_device_memcpy_d2h(OPS_instance *instance, void** to, void **from, size_t size) {
+  OPS_TRACE("%.2f MiB", size / 1048576.0);
   cutilSafeCall(instance->ostream(), cudaMemcpy(*to, *from, size, cudaMemcpyDeviceToHost));
 }
 

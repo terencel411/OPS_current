@@ -39,6 +39,7 @@
 
 #include <mpi.h>
 #include <ops_mpi_core.h>
+#include "ops_trace.h"
 
 
 void ops_pack(ops_dat dat, const int src_offset, char *__restrict dest,
@@ -264,6 +265,7 @@ void ops_download_dat(ops_dat dat) { (void)dat; }
 void ops_upload_dat(ops_dat dat) { (void)dat; }
 
 void ops_dat_fetch_data_memspace(ops_dat dat, int part, char *data, ops_memspace memspace) {
+  OPS_TRACE("dat=%s  [MPI host: forwards to the throwing _host]", dat->name);
   ops_dat_fetch_data_host(dat, part, data);
 }
 

@@ -45,6 +45,7 @@
 #include <cassert>
 #include <limits>
 #include <algorithm>
+#include "ops_trace.h"
 
 #define AGGREGATE
 size_t ops_buffer_size = 0;
@@ -2089,6 +2090,7 @@ void ops_dat_release_raw_data_memspace(ops_dat dat, int part, ops_access acc, op
 }
 
 void ops_dat_fetch_data_host(ops_dat dat, int part, char *data) {
+      OPS_TRACE("dat=%s  [about to throw OPS_NOT_IMPLEMENTED]", dat->name);
       throw OPSException(OPS_NOT_IMPLEMENTED, "Error: Not implemented");
 }
 void ops_dat_fetch_data_slab_host(ops_dat dat, int part, char *data, int *range) {
@@ -2096,6 +2098,8 @@ void ops_dat_fetch_data_slab_host(ops_dat dat, int part, char *data, int *range)
 }
 
 void ops_dat_fetch_data(ops_dat dat, int part, char *data) {
+  OPS_TRACE("dat=%s dirty_hd=%d -> %s  [MPI: local slice, self-contained]",
+            dat->name, dat->dirty_hd, dat->dirty_hd == 2 ? "D2H" : "no copy");
   ops_execute(dat->block->instance);
   ops_check_lowdim_update(dat);
   ops_get_data(dat);
@@ -2128,6 +2132,7 @@ struct ops_global_fetch_layout {
 };
 
 void ops_dat_global_fetch_data(ops_dat dat, int part, char *data) {
+  OPS_TRACE("dat=%s e_dat=%d dim=%d", dat->name, dat->e_dat, dat->dim);
   if (dat->block->dims > 3) throw OPSException(OPS_NOT_IMPLEMENTED, "Error, missing OPS implementation: ops_dat_global_fetch_data not implemented for dims>3");
   if (OPS_instance::getOPSInstance()->OPS_soa && dat->dim > 1) throw OPSException(OPS_NOT_IMPLEMENTED, "Error, missing OPS implementation: ops_dat_global_fetch_data not implemented for SoA");
 
@@ -2175,12 +2180,30 @@ void ops_dat_global_fetch_data(ops_dat dat, int part, char *data) {
     L->send_bytes = L->counts[nrank];
     L->sendbuf.resize(std::max(local_bytes, 1));
     L->recvbuf.resize(std::max(total, 1));
+    if (ops_trace_level() >= 1 && nrank == 0) {
+      printf("[ops-trace layout] dat=%s esize=%d nranks=%d gsize=(%d,%d,%d)\n",
+             dat->name, dat->elem_size, nranks, L->gsize[0], L->gsize[1], L->gsize[2]);
+      int tiled = 0;
+      for (int r = 0; r < nranks; r++) {
+        const int *b = &L->box[6 * r];
+        printf("[ops-trace layout]   r%-3d disp=(%4d,%4d,%4d) size=(%4d,%4d,%4d) bytes=%-8d displ=%-8d%s\n",
+               r, b[0], b[1], b[2], b[3], b[4], b[5], L->counts[r], L->displs[r],
+               L->counts[r] == 0 ? "  <- sends nothing" : "");
+        tiled += b[3] * b[4] * b[5];
+      }
+      int expect = L->gsize[0] * L->gsize[1] * L->gsize[2];
+      printf("[ops-trace layout]   cells sent=%d  global=%d  %s\n", tiled, expect,
+             tiled == expect ? "TILES EXACTLY" : "*** MISMATCH ***");
+      fflush(stdout);
+    }
     layouts[dat->index] = L;
   }
   ops_global_fetch_layout *L = layouts[dat->index];
 
   // every owning rank fetches: the lowdim update inside it is collective over the pencil
   if (L->owned) ops_dat_fetch_data(dat, part, L->sendbuf.data());
+  OPS_TRACE("dat=%s owned=%d send_bytes=%d recv_bytes=%zu", dat->name, L->owned,
+            L->send_bytes, L->recvbuf.size());
   MPI_Allgatherv(L->sendbuf.data(), L->send_bytes, MPI_BYTE, L->recvbuf.data(),
                  L->counts.data(), L->displs.data(), MPI_BYTE, OPS_MPI_GLOBAL);
 

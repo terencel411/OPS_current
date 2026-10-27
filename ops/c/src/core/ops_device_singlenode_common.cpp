@@ -41,6 +41,7 @@
 #include <ops_exceptions.h>
 #include <string>
 #include <assert.h>
+#include "ops_trace.h"
 
 ops_dat ops_decl_dat_char(ops_block block, int size, int *dat_size, int *base,
                           int *d_m, int *d_p, int *stride, char *data, int type_size,
@@ -189,6 +190,7 @@ void ops_dat_set_data_slab_memspace(ops_dat dat, int part, char *data, int *rang
 
 
 void ops_dat_fetch_data_memspace(ops_dat dat, int part, char *data, ops_memspace memspace) {
+  OPS_TRACE("dat=%s memspace=%s", dat->name, memspace == OPS_HOST ? "OPS_HOST" : "OPS_DEVICE");
   if (memspace == OPS_HOST) ops_dat_fetch_data_host(dat, part, data);
   else {
     ops_execute(dat->block->instance);

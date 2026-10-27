@@ -40,6 +40,7 @@
 #include <ops_device_rt_support.h>
 
 #include <random>
+#include "ops_trace.h"
 //std::default_random_engine ops_rand_gen;
 std::mt19937 ops_rand_gen;
 
@@ -86,6 +87,7 @@ void ops_device_memcpy_h2d(OPS_instance *instance, void** to, void **from, size_
 }
 
 void ops_device_memcpy_d2h(OPS_instance *instance, void** to, void **from, size_t size) {
+  OPS_TRACE("%.2f MiB  [host backend: no-op]", size / 1048576.0);
   (void)instance;
   (void)to;
   (void)from;
