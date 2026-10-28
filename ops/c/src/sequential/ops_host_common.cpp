@@ -79,6 +79,7 @@ void ops_device_freehost(OPS_instance *instance, void** ptr) {
 }
 
 void ops_device_memcpy_h2d(OPS_instance *instance, void** to, void **from, size_t size) {
+  OPS_TRACE("%.2f MiB  [host backend: no-op]", size / 1048576.0);
   (void)instance;
   (void)to;
   (void)from;

@@ -97,6 +97,7 @@ void ops_device_freehost(OPS_instance *instance, void** ptr) {
 }
 
 void ops_device_memcpy_h2d(OPS_instance *instance, void** to, void **from, size_t size) {
+  OPS_TRACE("%.2f MiB", size / 1048576.0);
   cutilSafeCall(instance->ostream(), cudaMemcpy(*to, *from, size, cudaMemcpyHostToDevice));
 }
 
