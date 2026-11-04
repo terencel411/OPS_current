@@ -1,7 +1,7 @@
 #ifndef OPENSBLIBLOCK00_KERNEL_H
 #define OPENSBLIBLOCK00_KERNEL_H
 
-void interp_RST(const ACC<double>& x1_B0, ACC<double>& a11, ACC<double>& a21, ACC<double>& a22, ACC<double>& a33, const double* ydata, const double* uudata, const double* uvdata, const double* vvdata, const double* wwdata){
+void interp_RST(const ACC<double>& x1_B0, ACC<double>& a11, ACC<double>& a21, ACC<double>& a22, ACC<double>& a33){
   // assumes zero uw and vw terms
 
   double y = 0.08548942989301017 * x1_B0(0,0,0);

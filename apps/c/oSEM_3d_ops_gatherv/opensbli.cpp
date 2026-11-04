@@ -151,11 +151,11 @@ ops_decl_const("uprofdata", 121, "double", &uprofdata[0]);
 // ---------------------- eddy global constants-------------------------------
 ops_decl_const("y_cutoff", 1, "int", &y_cutoff);
 ops_decl_const("ndata", 1, "int", &ndata);
-// ops_decl_const("ydata", ndata, "double", &ydata[0]);
-// ops_decl_const("uudata", ndata, "double", &uudata[0]);
-// ops_decl_const("uvdata", ndata, "double", &uvdata[0]);
-// ops_decl_const("vvdata", ndata, "double", &vvdata[0]);
-// ops_decl_const("wwdata", ndata, "double", &wwdata[0]);
+ops_decl_const("ydata", 121, "double", &ydata[0]);
+ops_decl_const("uudata", 121, "double", &uudata[0]);
+ops_decl_const("uvdata", 121, "double", &uvdata[0]);
+ops_decl_const("vvdata", 121, "double", &vvdata[0]);
+ops_decl_const("wwdata", 121, "double", &wwdata[0]);
 ops_decl_const("delta", 1, "double", &delta);
 ops_decl_const("radius", 1, "double", &radius);
 ops_decl_const("eddy_vol", 1, "double", &eddy_vol);
@@ -306,12 +306,7 @@ ops_arg_dat(x1_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
 ops_arg_dat(d_a11, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_dat(d_a21, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_dat(d_a22, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
-ops_arg_dat(d_a33, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
-ops_arg_gbl(ydata, ndata, "double", OPS_READ),
-ops_arg_gbl(uudata, ndata, "double", OPS_READ),
-ops_arg_gbl(uvdata, ndata, "double", OPS_READ),
-ops_arg_gbl(vvdata, ndata, "double", OPS_READ),
-ops_arg_gbl(wwdata, ndata, "double", OPS_READ));
+ops_arg_dat(d_a33, 1, stencil_0_00_00_00_3, "double", OPS_WRITE));
 
 ops_dat_global_fetch_data(d_a11, 0, (char*)a11);
 ops_dat_global_fetch_data(d_a21, 0, (char*)a21);
