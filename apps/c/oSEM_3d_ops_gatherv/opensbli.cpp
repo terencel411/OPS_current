@@ -12,6 +12,19 @@
 #include "opensbliblock00_kernels.h"
 #include "io.h"
 
+// NVTX ranges for nsys; header-only and auto-disabled when the CUDA headers are absent,
+// so the seq/mpi builds compile unchanged. Attributes GPU memcpys per range in nsys.
+#if defined(__has_include)
+#  if __has_include(<nvtx3/nvToolsExt.h>)
+#    include <nvtx3/nvToolsExt.h>
+#    define SEM_NVTX 1
+#  endif
+#endif
+#ifndef SEM_NVTX
+#  define nvtxRangePushA(name) ((void)0)
+#  define nvtxRangePop()       ((void)0)
+#endif
+
 
 int main(int argc, char **argv) 
 {
@@ -335,20 +348,27 @@ ops_reduction h_rhomin = ops_decl_reduction_handle(sizeof(double), "double", "rh
 // Initialize loop timers
 double cpu_start0, elapsed_start0, cpu_end0, elapsed_end0;
 ops_timers(&cpu_start0, &elapsed_start0);
-double inner_start, elapsed_inner_start;
-double inner_end, elapsed_inner_end;
-ops_timers(&inner_start, &elapsed_inner_start);
 
-double t_cpu;
-double pre_gather_start, gather_start, post_gather_start;
-double pre_gather_end, gather_end, post_gather_end;
+// Per-region iteration timers; the regions tile the whole loop body with no gaps.
+// ops_timers_core is used deliberately: ops_timers is an MPI_Barrier and would perturb the run.
+enum {T_DIAG, T_EDDY, T_GATHER, T_INFLOW, T_BCS, T_STAGES, T_STATS, T_IO, T_NREG};
+const char *t_name[T_NREG] = {"diag NaNcheck+rho_min", "eddy rng+convect", "gather 8x fetch_data",
+                              "inflow Kernel030 #1", "bcs K031-033+halo", "stages RK x3",
+                              "stats K047+new01", "io hdf5 write"};
+double t_acc[T_NREG];
+for(int r=0; r<T_NREG; r++) t_acc[r] = 0.0;
+double t030_acc[2] = {0.0, 0.0};
+long n030[2] = {0, 0};
+double t_dummy, t_mark, t_prev, t_iter0, t030a, t030b;
+double t_iter_acc = 0.0, t_iter_last = 0.0;
 for(iter=start_iter; iter<=start_iter+niter - 1; iter++)
 {
+ops_timers_core(&t_dummy, &t_iter0);
+t_prev = t_iter0;
 simulation_time = tstart + dt*((iter - start_iter)+1);
 ops_update_const("simulation_time", 1, "double", &simulation_time);
 if(fmod(iter+1, 1) == 0){
-        ops_timers(&inner_end, &elapsed_inner_end);
-        ops_printf("Iteration: %d. Time-step: %.3e. Simulation time: %.5f. Time/iteration: %lf.\n", iter+1, dt, simulation_time, (elapsed_inner_end - elapsed_inner_start)/1);
+        ops_printf("Iteration: %d. Time-step: %.3e. Simulation time: %.5f. Time/iteration: %lf (prev iter).\n", iter+1, dt, simulation_time, t_iter_last);
         ops_NaNcheck(rho_B0);
 
         {
@@ -361,13 +381,12 @@ if(fmod(iter+1, 1) == 0){
         ops_printf("   rho_min %.6f\n", rmin);
         }
 
-        ops_timers(&inner_start, &elapsed_inner_start);
 }
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_DIAG] += t_mark - t_prev; t_prev = t_mark;
 
 // ------------------------ eddy convection -----------------------------------------------
 
 
-ops_timers(&t_cpu, &pre_gather_start);
 
 seed_gbl = (a*seed_gbl + c) % m;
 //ops_randomgen_init(seed_gbl, 0);
@@ -383,10 +402,10 @@ ops_arg_dat(eddy_eps_y, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_eps_z, 1, stencil_0_00_00_00_3, "int", OPS_WRITE),
 ops_arg_dat(eddy_bulk_rng, 5, stencil_0_00_00_00_3, "int", OPS_READ));
 
-ops_timers(&t_cpu, &pre_gather_end);
-gather_start = pre_gather_end;
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_EDDY] += t_mark - t_prev; t_prev = t_mark;
 
 // every rank receives all eddies through the OPS library allgatherv
+nvtxRangePushA("gather_8x_fetch_data");
 ops_dat_global_fetch_data(eddy_x, 0, (char*) eddy_x_gbl);
 ops_dat_global_fetch_data(eddy_y, 0, (char*) eddy_y_gbl);
 ops_dat_global_fetch_data(eddy_z, 0, (char*) eddy_z_gbl);
@@ -395,9 +414,12 @@ ops_dat_global_fetch_data(eddy_increment, 0, (char*) eddy_increment_gbl);
 ops_dat_global_fetch_data(eddy_eps_x, 0, (char*) eddy_eps_x_gbl);
 ops_dat_global_fetch_data(eddy_eps_y, 0, (char*) eddy_eps_y_gbl);
 ops_dat_global_fetch_data(eddy_eps_z, 0, (char*) eddy_eps_z_gbl);
+nvtxRangePop();
 
-ops_timers(&t_cpu, &gather_end);
-post_gather_start = gather_end;
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_GATHER] += t_mark - t_prev; t_prev = t_mark;
+nvtxRangePushA("K030_pre_stage");
+nvtxRangePushA("K030_in_stage");
+ops_timers_core(&t_dummy, &t030a);
 int iteration_range_30_block0[] = {-2, 1, -2, block0np1 + 2, -2, block0np2 + 2};
 ops_par_loop(opensbliblock00Kernel030, "Dirichlet boundary dir0 side0", opensbliblock00, 3, iteration_range_30_block0,
 ops_arg_dat(x1_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
@@ -415,6 +437,9 @@ ops_arg_gbl(eddy_eps_x_gbl, eddies, "int", OPS_READ),
 ops_arg_gbl(eddy_eps_y_gbl, eddies, "int", OPS_READ),
 ops_arg_gbl(eddy_eps_z_gbl, eddies, "int", OPS_READ),
 ops_arg_idx());
+ops_timers_core(&t_dummy, &t030b); t030_acc[0] += t030b - t030a; n030[0]++;
+t_acc[T_INFLOW] += t030b - t_prev; t_prev = t030b;
+nvtxRangePop();
 
 int iteration_range_31_block0[] = {block0np0 - 1, block0np0, -2, block0np1 + 2, -2, block0np2 + 2};
 ops_par_loop(opensbliblock00Kernel031, "Extrapolation boundary dir0 side1", opensbliblock00, 3, iteration_range_31_block0,
@@ -442,6 +467,7 @@ ops_arg_dat(rhou2_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW));
 
 ops_halo_transfer(periodicBC_direction2_side0_34_block0);
 ops_halo_transfer(periodicBC_direction2_side1_35_block0);
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_BCS] += t_mark - t_prev; t_prev = t_mark;
 for(stage=0; stage<=2; stage++)
 {
 int iteration_range_1_block0[] = {-2, block0np0 + 2, -2, block0np1 + 2, -2, block0np2 + 2};
@@ -625,6 +651,7 @@ ops_arg_dat(rhou2_RKold_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_gbl(&rkA[stage], 1, "double", OPS_READ),
 ops_arg_gbl(&rkB[stage], 1, "double", OPS_READ));
 
+ops_timers_core(&t_dummy, &t030a);
 int iteration_range_30_block0[] = {-2, 1, -2, block0np1 + 2, -2, block0np2 + 2};
 ops_par_loop(opensbliblock00Kernel030, "Dirichlet boundary dir0 side0", opensbliblock00, 3, iteration_range_30_block0,
 ops_arg_dat(x1_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
@@ -642,6 +669,8 @@ ops_arg_gbl(eddy_eps_x_gbl, eddies, "int", OPS_READ),
 ops_arg_gbl(eddy_eps_y_gbl, eddies, "int", OPS_READ),
 ops_arg_gbl(eddy_eps_z_gbl, eddies, "int", OPS_READ),
 ops_arg_idx());
+ops_timers_core(&t_dummy, &t030b); t030_acc[1] += t030b - t030a; n030[1]++;
+nvtxRangePop();
 
 int iteration_range_31_block0[] = {block0np0 - 1, block0np0, -2, block0np1 + 2, -2, block0np2 + 2};
 ops_par_loop(opensbliblock00Kernel031, "Extrapolation boundary dir0 side1", opensbliblock00, 3, iteration_range_31_block0,
@@ -670,6 +699,7 @@ ops_arg_dat(rhou2_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW));
 ops_halo_transfer(periodicBC_direction2_side0_34_block0);
 ops_halo_transfer(periodicBC_direction2_side1_35_block0);
 }
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_STAGES] += t_mark - t_prev; t_prev = t_mark;
 if(iter > start_averaging){
 int iteration_range_47_block0[] = {0, block0np0, 0, block0np1, 0, block0np2};
 ops_par_loop(opensbliblock00Kernel047, "user kernel InTheSimulation", opensbliblock00, 3, iteration_range_47_block0,
@@ -713,26 +743,35 @@ ops_arg_dat(u0u1_mean_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_dat(utau_mean_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_idx());
 }
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_STATS] += t_mark - t_prev; t_prev = t_mark;
 
 if (fmod(1 + iter,write_output_file) == 0 || iter == 0){
 HDF5_IO_Write_0_opensbliblock00_dynamic(opensbliblock00, iter, rho_B0, rhou0_B0, rhou1_B0, rhou2_B0, rhoE_B0, x0_B0, x1_B0, x2_B0, D11_B0, T_B0, mu_B0, p_B0, HDF5_timing);
 }
 
-ops_timers(&t_cpu, &post_gather_end);
-if(fmod(iter+1, write_output_file) == 0){
-printf("iter %6d  pre_gather %.6e  gather %.6e  post_gather %.6e\n",
-       iter + 1,
-       pre_gather_end  - pre_gather_start,
-       gather_end      - gather_start,
-       post_gather_end - post_gather_start);
-       fflush(NULL);
-}
+ops_timers_core(&t_dummy, &t_mark); t_acc[T_IO] += t_mark - t_prev; t_prev = t_mark;
+t_iter_last = t_prev - t_iter0;
+t_iter_acc += t_iter_last;
 
 }
 ops_timers(&cpu_end0, &elapsed_end0);
 ops_printf("\nTimings are:\n");
 ops_printf("-----------------------------------------\n");
 ops_printf("Total Wall time %lf\n",elapsed_end0-elapsed_start0);
+
+// Per-region budget; the regions tile the loop body so the parts sum to the whole.
+ops_printf("-----------------------------------------\n");
+ops_printf("Per-iteration time budget over %d iterations (rank 0)\n", niter);
+double t_sum = 0.0;
+for(int r=0; r<T_NREG; r++) t_sum += t_acc[r];
+for(int r=0; r<T_NREG; r++)
+  ops_printf("  %-24s %12.6e s/iter  %6.2f %%\n", t_name[r], t_acc[r]/niter, 100.0*t_acc[r]/t_iter_acc);
+ops_printf("  %-24s %12.6e s/iter\n", "TOTAL measured", t_iter_acc/niter);
+ops_printf("  %-24s %12.6e s  (tiling residual, should be ~0)\n", "unaccounted", t_iter_acc - t_sum);
+ops_printf("  %-24s %12.6e s  (loop wall minus measured)\n", "outside loop body", (elapsed_end0-elapsed_start0) - t_iter_acc);
+ops_printf("  Kernel030 site 1 (pre-stage)  %12.6e s/call over %ld calls\n", n030[0] ? t030_acc[0]/n030[0] : 0.0, n030[0]);
+ops_printf("  Kernel030 site 2 (in-stage)   %12.6e s/call over %ld calls\n", n030[1] ? t030_acc[1]/n030[1] : 0.0, n030[1]);
+ops_printf("  Kernel030 both sites          %12.6e s/iter\n", (t030_acc[0]+t030_acc[1])/niter);
 
 int iteration_range_48_block0[] = {0, block0np0, 0, block0np1, 0, block0np2};
 ops_par_loop(opensbliblock00Kernel048, "user kernel AfterSimulationEnds", opensbliblock00, 3, iteration_range_48_block0,
