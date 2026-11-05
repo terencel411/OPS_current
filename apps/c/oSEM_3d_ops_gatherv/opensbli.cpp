@@ -20,6 +20,11 @@
 #    define SEM_NVTX 1
 #  endif
 #endif
+// ops_get_proc/ops_num_procs are defined in every backend library but are not
+// declared in ops_seq.h; ops_kernel timings come from the public OPS_instance.
+int ops_get_proc();
+int ops_num_procs();
+
 #ifndef SEM_NVTX
 #  define nvtxRangePushA(name) ((void)0)
 #  define nvtxRangePop()       ((void)0)
@@ -772,6 +777,31 @@ ops_printf("  %-24s %12.6e s  (loop wall minus measured)\n", "outside loop body"
 ops_printf("  Kernel030 site 1 (pre-stage)  %12.6e s/call over %ld calls\n", n030[0] ? t030_acc[0]/n030[0] : 0.0, n030[0]);
 ops_printf("  Kernel030 site 2 (in-stage)   %12.6e s/call over %ld calls\n", n030[1] ? t030_acc[1]/n030[1] : 0.0, n030[1]);
 ops_printf("  Kernel030 both sites          %12.6e s/iter\n", (t030_acc[0]+t030_acc[1])/niter);
+
+// Per-rank CSV of regions and every OPS kernel; rank 0 only prints the table above.
+// collate_timings.py turns the set of files into a region x rank matrix.
+{
+  char tfn[64];
+  snprintf(tfn, 64, "timing_rank%03d.csv", ops_get_proc());
+  FILE *tf = fopen(tfn, "w");
+  if (tf) {
+    fprintf(tf, "rank,nranks,kind,name,count,time,mpi_time\n");
+    int tr = ops_get_proc(), tn = ops_num_procs();
+    for(int r=0; r<T_NREG; r++)
+      fprintf(tf, "%d,%d,region,%s,%d,%.9e,0\n", tr, tn, t_name[r], niter, t_acc[r]);
+    fprintf(tf, "%d,%d,region,TOTAL measured,%d,%.9e,0\n", tr, tn, niter, t_iter_acc);
+    fprintf(tf, "%d,%d,k030,site1 pre-stage,%ld,%.9e,0\n", tr, tn, n030[0], t030_acc[0]);
+    fprintf(tf, "%d,%d,k030,site2 in-stage,%ld,%.9e,0\n",  tr, tn, n030[1], t030_acc[1]);
+    OPS_instance *tinst = OPS_instance::getOPSInstance();
+    for(int k=0; k<tinst->OPS_kern_max; k++)
+      if (tinst->OPS_kernels[k].count > 0)
+        fprintf(tf, "%d,%d,kernel,%s,%d,%.9e,%.9e\n", tr, tn,
+                tinst->OPS_kernels[k].name, tinst->OPS_kernels[k].count,
+                tinst->OPS_kernels[k].time, tinst->OPS_kernels[k].mpi_time);
+    fclose(tf);
+    ops_printf("  per-rank timings written to timing_rank*.csv (%d file(s))\n", tn);
+  }
+}
 
 int iteration_range_48_block0[] = {0, block0np0, 0, block0np1, 0, block0np2};
 ops_par_loop(opensbliblock00Kernel048, "user kernel AfterSimulationEnds", opensbliblock00, 3, iteration_range_48_block0,
