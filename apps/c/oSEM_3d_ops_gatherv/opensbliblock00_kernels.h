@@ -257,7 +257,8 @@ void opensbliblock00Kernel046(const ACC<double> &D11_B0, ACC<double> &SD111_B0, 
 }
 
  void opensbliblock00Kernel030(const ACC<double> &x1_B0, ACC<double> &rhoE_B0, ACC<double> &rhou0_B0, ACC<double>
-&rhou1_B0, ACC<double> &rhou2_B0, ACC<double> &rho_B0, const ACC<double>& x2_B0, const double* eddy_x_gbl, const double* eddy_y_gbl, const double* eddy_z_gbl, const double* eddy_r_gbl,
+&rhou1_B0, ACC<double> &rhou2_B0, ACC<double> &rho_B0, const ACC<double>& x2_B0, ACC<double> &up_copy_B0,
+ACC<double> &vp_copy_B0, ACC<double> &wp_copy_B0, const double* eddy_x_gbl, const double* eddy_y_gbl, const double* eddy_z_gbl, const double* eddy_r_gbl,
 const int* eddy_eps_x_gbl, const int* eddy_eps_y_gbl, const int* eddy_eps_z_gbl, const int* idx)
 {
    double T = 0.0;
@@ -349,6 +350,10 @@ const int* eddy_eps_x_gbl, const int* eddy_eps_y_gbl, const int* eddy_eps_z_gbl,
    vp = (std::abs(vp) < 0.2) ? vp : std::abs(vp)/vp * 0.2;
    wp = (std::abs(wp) < 0.2) ? wp : std::abs(wp)/wp * 0.2;
 
+   up_copy_B0(0,0,0) = up;
+   vp_copy_B0(0,0,0) = vp;
+   wp_copy_B0(0,0,0) = wp;
+
    rho_B0(0,0,0) = rho_temp;
 
    rhou0_B0(0,0,0) = rho_temp * (u0+up);
@@ -361,7 +366,62 @@ const int* eddy_eps_x_gbl, const int* eddy_eps_y_gbl, const int* eddy_eps_z_gbl,
 
 }
 
- void opensbliblock00Kernel031(ACC<double> &rhoE_B0, ACC<double> &rho_B0, ACC<double> &rhou0_B0, ACC<double> &rhou1_B0,
+  void opensbliblock00Kernel030_copy(const ACC<double> &x1_B0, ACC<double> &rhoE_B0, ACC<double> &rhou0_B0,
+ACC<double> &rhou1_B0, ACC<double> &rhou2_B0, ACC<double> &rho_B0, const ACC<double> &up_copy_B0,
+const ACC<double> &vp_copy_B0, const ACC<double> &wp_copy_B0, const int* idx)
+{
+   double T = 0.0;
+   double p = 0.0;
+   double psifn = 0.0;
+   double u0 = 0.0;
+   double u1 = 0.0;
+   double u2 = 0.0;
+   double x1d = 0.0;
+   double rho_temp = 0.0;
+
+   double up = up_copy_B0(0,0,0);
+   double vp = vp_copy_B0(0,0,0);
+   double wp = wp_copy_B0(0,0,0);
+
+   x1d = 0.08548942989301017*x1_B0(0,0,0);
+
+   u0 = (x1_B0(0,0,0) < 0) ? 0.0 :
+   (x1_B0(0,0,0) > 0.0 && x1d < 1.0) ? uinterp[idx[1]]: 1.0;
+
+   u1 = 0.0;
+
+   u2 = 0.0;
+
+   psifn = pow(u0, 2.0);
+
+    T = ((x1_B0(0,0,0) <= 0) ? (
+   Twall
+)
+: ((x1_B0(0,0,0) > 0 && 0.08548942989301017*x1_B0(0,0,0) < 1.0) ? (
+   Twall
+      + psifn*(1 - Twall)
+)
+: (
+   1.0
+)));
+
+   p = 1/((Minf*Minf)*gama);
+
+   rho_temp = gama*p*(Minf*Minf)/T;
+
+   rho_B0(0,0,0) = rho_temp;
+
+   rhou0_B0(0,0,0) = rho_temp * (u0+up);
+
+   rhou1_B0(0,0,0) = rho_temp * (u1+vp);
+
+   rhou2_B0(0,0,0) = rho_temp * (u2+wp);
+
+   rhoE_B0(0,0,0) = p/(-1 + gama) + 0.5*((u0+up)*(u0+up))*rho_B0(0,0,0);
+
+}
+
+void opensbliblock00Kernel031(ACC<double> &rhoE_B0, ACC<double> &rho_B0, ACC<double> &rhou0_B0, ACC<double> &rhou1_B0,
 ACC<double> &rhou2_B0)
 {
    rho_B0(0,0,0) = rho_B0(-1,0,0);

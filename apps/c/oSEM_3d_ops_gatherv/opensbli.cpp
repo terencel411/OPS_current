@@ -423,7 +423,6 @@ nvtxRangePop();
 
 ops_timers_core(&t_dummy, &t_mark); t_acc[T_GATHER] += t_mark - t_prev; t_prev = t_mark;
 nvtxRangePushA("K030_pre_stage");
-nvtxRangePushA("K030_in_stage");
 ops_timers_core(&t_dummy, &t030a);
 int iteration_range_30_block0[] = {-2, 1, -2, block0np1 + 2, -2, block0np2 + 2};
 ops_par_loop(opensbliblock00Kernel030, "Dirichlet boundary dir0 side0", opensbliblock00, 3, iteration_range_30_block0,
@@ -434,6 +433,9 @@ ops_arg_dat(rhou1_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rhou2_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rho_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_dat(x2_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
+ops_arg_dat(up_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
+ops_arg_dat(vp_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
+ops_arg_dat(wp_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_gbl(eddy_x_gbl, eddies, "double", OPS_READ),
 ops_arg_gbl(eddy_y_gbl, eddies, "double", OPS_READ),
 ops_arg_gbl(eddy_z_gbl, eddies, "double", OPS_READ),
@@ -656,23 +658,19 @@ ops_arg_dat(rhou2_RKold_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
 ops_arg_gbl(&rkA[stage], 1, "double", OPS_READ),
 ops_arg_gbl(&rkB[stage], 1, "double", OPS_READ));
 
+nvtxRangePushA("K030_in_stage");
 ops_timers_core(&t_dummy, &t030a);
 int iteration_range_30_block0[] = {-2, 1, -2, block0np1 + 2, -2, block0np2 + 2};
-ops_par_loop(opensbliblock00Kernel030, "Dirichlet boundary dir0 side0", opensbliblock00, 3, iteration_range_30_block0,
+ops_par_loop(opensbliblock00Kernel030_copy, "Dirichlet boundary dir0 side0 copy", opensbliblock00, 3, iteration_range_30_block0,
 ops_arg_dat(x1_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
 ops_arg_dat(rhoE_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rhou0_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rhou1_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rhou2_B0, 1, stencil_0_00_00_00_3, "double", OPS_WRITE),
 ops_arg_dat(rho_B0, 1, stencil_0_00_00_00_3, "double", OPS_RW),
-ops_arg_dat(x2_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
-ops_arg_gbl(eddy_x_gbl, eddies, "double", OPS_READ),
-ops_arg_gbl(eddy_y_gbl, eddies, "double", OPS_READ),
-ops_arg_gbl(eddy_z_gbl, eddies, "double", OPS_READ),
-ops_arg_gbl(eddy_r_gbl, eddies, "double", OPS_READ),
-ops_arg_gbl(eddy_eps_x_gbl, eddies, "int", OPS_READ),
-ops_arg_gbl(eddy_eps_y_gbl, eddies, "int", OPS_READ),
-ops_arg_gbl(eddy_eps_z_gbl, eddies, "int", OPS_READ),
+ops_arg_dat(up_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
+ops_arg_dat(vp_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
+ops_arg_dat(wp_copy_B0, 1, stencil_0_00_00_00_3, "double", OPS_READ),
 ops_arg_idx());
 ops_timers_core(&t_dummy, &t030b); t030_acc[1] += t030b - t030a; n030[1]++;
 nvtxRangePop();

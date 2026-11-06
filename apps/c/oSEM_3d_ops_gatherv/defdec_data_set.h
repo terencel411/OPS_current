@@ -750,3 +750,31 @@ int base[] = {0, 0, 0};
 double* value = NULL;
 d_a33 = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "d_a33");
 }
+
+ops_dat up_copy_B0;
+{
+int halo_p[] = {5, 5, 5};
+int halo_m[] = {-5, -5, -5};
+int size[] = {block0np0, block0np1, block0np2};
+int base[] = {0, 0, 0};
+double* value = NULL;
+up_copy_B0 = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "up_copy_B0");
+}
+ops_dat vp_copy_B0;
+{
+int halo_p[] = {5, 5, 5};
+int halo_m[] = {-5, -5, -5};
+int size[] = {block0np0, block0np1, block0np2};
+int base[] = {0, 0, 0};
+double* value = NULL;
+vp_copy_B0 = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "vp_copy_B0");
+}
+ops_dat wp_copy_B0;
+{
+int halo_p[] = {5, 5, 5};
+int halo_m[] = {-5, -5, -5};
+int size[] = {block0np0, block0np1, block0np2};
+int base[] = {0, 0, 0};
+double* value = NULL;
+wp_copy_B0 = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "wp_copy_B0");
+}
